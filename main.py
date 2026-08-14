@@ -1,16 +1,35 @@
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import telebot
 from datetime import datetime
 import gspread
 
+# --- SERVIDOR FAKE PARA O RENDER NÃO DERRUBAR O WEB SERVICE ---
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot do Telegram rodando perfeitamente!")
 
+def run_http_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
+    server.serve_forever()
+
+# Inicia o servidor web em uma thread separada (segundo plano)
+threading.Thread(target=run_http_server, daemon=True).start()
+
+
+# --- CONFIGURAÇÃO DAS PLANILHAS ---
 gc = gspread.service_account(filename='credenciais.json')
 id_planilha = "1U4bDqlzHavIu1stC2B9Sg1nwgY2ZgY-Vr6Ro-ayAJCw"
 planilha = gc.open_by_key(id_planilha).sheet1
 resumo = gc.open_by_key(id_planilha).worksheet("resumo")
 
 
-#export TELEGRAM_BOT_TOKEN="token" ou via ~/.bashrc)
+# --- CONFIGURAÇÃO DO TELEGRAM ---
+# export TELEGRAM_BOT_TOKEN="token" (ou defina no painel do Render)
 chave_api = os.environ.get("TELEGRAM_BOT_TOKEN")
 if not chave_api:
     raise RuntimeError(
@@ -20,7 +39,7 @@ if not chave_api:
 bot = telebot.TeleBot(chave_api)
 
 
-#---- COMANDOS DO BOT ----
+# ---- COMANDOS DO BOT ----
 
 def atualizar_resumo():
     registros = planilha.get_all_records()
@@ -43,10 +62,8 @@ def atualizar_resumo():
         if tipo in dias[data]:
             dias[data][tipo] = hora
 
-    
     resumo.clear()
 
-    
     resumo.append_row([
         "Data",
         "Entrada",
@@ -62,7 +79,6 @@ def atualizar_resumo():
 
         horas_trabalhadas = ""
 
-        
         if (
             pontos["Entrada"]
             and pontos["Saída Almoço"]
@@ -98,7 +114,6 @@ def atualizar_resumo():
             horas_trabalhadas
         ])
 
-    
     horas = int(total_segundos // 3600)
     minutos = int((total_segundos % 3600) // 60)
 
@@ -110,6 +125,7 @@ def atualizar_resumo():
         "TOTAL DO MÊS",
         f"{horas:02d}:{minutos:02d}"
     ])
+
 
 @bot.message_handler(commands=["start"])
 def boas_vindas(mensagem):
@@ -126,7 +142,6 @@ def boas_vindas(mensagem):
 
 
 def registrar_evento(mensagem, tipo, rotulo):
-    
     try:
         agora = datetime.now()
         data = agora.strftime("%d/%m/%y")
@@ -168,4 +183,5 @@ def registrar_ponto(mensagem):
     registrar_evento(mensagem, "Manual / Fora do App", "Ponto")
 
 
+# --- INICIALIZAÇÃO DO BOT (só entra aqui depois de registrar todos os comandos) ---
 bot.infinity_polling()
