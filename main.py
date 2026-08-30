@@ -1,24 +1,7 @@
 import os
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
 import telebot
 from datetime import datetime
 import gspread
-
-# --- SERVIDOR FAKE PARA O RENDER NÃO DERRUBAR O WEB SERVICE ---
-class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Bot do Telegram rodando perfeitamente!")
-
-def run_http_server():
-    port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
-    server.serve_forever()
-
-# Inicia o servidor web em uma thread separada (segundo plano)
-threading.Thread(target=run_http_server, daemon=True).start()
 
 
 # --- CONFIGURAÇÃO DAS PLANILHAS ---
@@ -39,7 +22,7 @@ if not chave_api:
 bot = telebot.TeleBot(chave_api)
 
 
-# ---- COMANDOS DO BOT ----
+# ---- COMANDOS DO BOT ---- 
 
 def atualizar_resumo():
     registros = planilha.get_all_records()
